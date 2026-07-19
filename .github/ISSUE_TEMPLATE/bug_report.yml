@@ -1,0 +1,43 @@
+name: Bug report
+description: Report a reproducible problem in the local recovery lab.
+title: ""
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include passwords, `.env` content, or real infrastructure data.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: v1.0.0 or commit SHA
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Include the exact command and the stage that failed.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+    validations:
+      required: true
+  - type: dropdown
+    id: destructive
+    attributes:
+      label: Did this involve `--apply`?
+      options:
+        - "No"
+        - "Yes"
+    validations:
+      required: true

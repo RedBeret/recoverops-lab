@@ -231,10 +231,29 @@ def command_test(_: argparse.Namespace) -> int:
     paths = ProjectPaths.discover()
     commands = [
         [str(paths.root / ".venv/bin/python"), "-m", "pytest", "-q"],
+        [str(paths.root / ".venv/bin/ruff"), "format", "--check", "src", "app", "tests"],
         [str(paths.root / ".venv/bin/ruff"), "check", "src", "app", "tests"],
         ["bash", "-n", "scripts/bootstrap.sh", "scripts/lab.sh"],
         [*compose_base(paths.root), "config", "--quiet"],
     ]
+    syntax_variables = json.dumps({"recoverops_root": str(paths.root)})
+    for playbook in ("seed", "backup", "disaster", "restore", "verify"):
+        commands.append(
+            [
+                str(paths.root / ".venv/bin/ansible-playbook"),
+                str(paths.root / f"ansible/playbooks/{playbook}.yml"),
+                "--syntax-check",
+                "--extra-vars",
+                syntax_variables,
+            ]
+        )
+    commands.append(
+        [
+            str(paths.root / ".venv/bin/ansible-lint"),
+            "ansible/playbooks",
+            "ansible/roles",
+        ]
+    )
     for command in commands:
         result = run(command, cwd=paths.root, check=False)
         if result.returncode != 0:

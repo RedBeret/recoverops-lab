@@ -101,3 +101,21 @@ repeatable rehearsal command, and prove modified dump rejection before `pg_resto
 
 Next: complete CI, the operator-focused README, contribution and security guidance, and
 release metadata before a clean acceptance run.
+
+## 2026-07-18 - Stage 6
+
+- Replaced the placeholder README with the complete native WSL workflow, architecture,
+  safety model, evidence definitions, endpoints, testing guide, and production boundary.
+- Added an operations guide, changelog, contribution guide, security policy, code of
+  conduct, and MIT license.
+- Added fast pull-request CI plus a separate scheduled and manually dispatched live
+  recovery rehearsal that uploads evidence artifacts.
+- Added grouped Dependabot updates, an issue form, and a pull request template.
+- Expanded `lab.sh test` to include Ruff formatting, every Ansible syntax check, and the
+  Ansible production lint profile.
+- Added a contract test that verifies every local README link resolves.
+- Verified 29 tests, the complete local validation command, Actionlint, ShellCheck,
+  Compose rendering, and clean whitespace checks.
+
+Next: run the release candidate from a clean generated state, review the repository as a
+skeptical operator, then set the final version only if all acceptance criteria pass.

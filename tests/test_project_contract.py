@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import yaml
@@ -59,3 +60,12 @@ def test_restore_requires_repository_before_entering_restore_block() -> None:
     assert task_names.index("Require an initialized backup repository") < task_names.index(
         "Restore the latest verified snapshot"
     )
+
+
+def test_local_readme_links_resolve() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    targets = re.findall(r"\]\((?!https?://|#|mailto:)([^)]+)\)", readme)
+
+    assert targets
+    for target in targets:
+        assert (ROOT / target).exists(), target
