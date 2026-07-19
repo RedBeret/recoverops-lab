@@ -17,3 +17,23 @@
 
 Next: build the repository foundation and prove the Compose configuration and baseline
 test suite.
+
+## 2026-07-18 - Stage 2
+
+- Added the Python `recoverctl` operator CLI with doctor, up, status, down, and test
+  commands.
+- Added a Compose v1/v2-compatible lab with separate primary and recovery PostgreSQL
+  databases plus matching HTTP services.
+- Added a non-root API image and loopback-only host bindings.
+- Added an idempotent native WSL bootstrap that creates the virtual environment,
+  generated credentials, and artifact directories with restrictive permissions.
+- Added baseline API, CLI, boundary, and project-contract tests.
+- The first test run caught an invalid FastAPI response-model union; route inference was
+  made explicit and the complete suite was rerun.
+- Replaced Starlette's deprecated `httpx` test fallback with the supported `httpx2`
+  dependency after confirming the behavior in the installed source.
+- Verified 11 tests, Ruff, shell syntax, Compose rendering, diagnostics, secret file
+  modes, CLI version, and both API image builds.
+
+Next: replace the placeholder database initialization with deterministic data,
+fingerprinting, PostgreSQL dump creation, restic encryption, and backup evidence.
