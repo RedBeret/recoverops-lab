@@ -23,6 +23,8 @@ def test_parser_accepts_foundation_commands() -> None:
         "seed",
         "backup",
         "restore",
+        "verify",
+        "report",
         "test",
     ):
         assert parser.parse_args([command]).command == command
@@ -32,4 +34,11 @@ def test_disaster_requires_explicit_apply(capsys) -> None:
     from recoverops.cli import main
 
     assert main(["disaster"]) == 2
+    assert "without --apply" in capsys.readouterr().err
+
+
+def test_rehearsal_requires_explicit_apply(capsys) -> None:
+    from recoverops.cli import main
+
+    assert main(["rehearse"]) == 2
     assert "without --apply" in capsys.readouterr().err

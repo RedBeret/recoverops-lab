@@ -1,0 +1,6 @@
+---
+- name: Verify RecoverOps recovery evidence
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - role: verify

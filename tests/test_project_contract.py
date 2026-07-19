@@ -15,6 +15,7 @@ def test_required_entrypoints_exist() -> None:
         "ansible/playbooks/seed.yml",
         "ansible/playbooks/disaster.yml",
         "ansible/playbooks/restore.yml",
+        "ansible/playbooks/verify.yml",
         "app/Dockerfile",
         "docs/PROJECT_PLAN.md",
     ):
@@ -35,3 +36,26 @@ def test_generated_secrets_are_ignored() -> None:
     assert ".env" in patterns
     assert ".secrets/" in patterns
     assert "artifacts/restic-repo/*" in patterns
+
+
+def test_restore_verifies_manifest_before_replacing_recovery_database() -> None:
+    tasks = yaml.safe_load(
+        (ROOT / "ansible/roles/restore/tasks/main.yml").read_text(encoding="utf-8")
+    )
+    block = next(task for task in tasks if "block" in task)["block"]
+    names = [task["name"] for task in block]
+
+    verify_index = names.index("Verify restored artifact checksums before database changes")
+    drop_index = names.index("Remove any previous isolated recovery database")
+    assert verify_index < drop_index
+
+
+def test_restore_requires_repository_before_entering_restore_block() -> None:
+    tasks = yaml.safe_load(
+        (ROOT / "ansible/roles/restore/tasks/main.yml").read_text(encoding="utf-8")
+    )
+    task_names = [task["name"] for task in tasks]
+
+    assert task_names.index("Require an initialized backup repository") < task_names.index(
+        "Restore the latest verified snapshot"
+    )

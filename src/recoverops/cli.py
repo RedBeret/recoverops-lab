@@ -9,7 +9,9 @@ from collections.abc import Callable
 
 from recoverops import __version__
 from recoverops.config import ProjectPaths
+from recoverops.database import ensure_recoverops_database
 from recoverops.evidence import capture_fingerprint, create_manifest, verify_manifest, write_json
+from recoverops.report import build_recovery_report
 from recoverops.restic import (
     backup_artifacts,
     check_repository,
@@ -23,7 +25,7 @@ from recoverops.runner import (
     run,
     wait_for_container_health,
 )
-from recoverops.safety import SafetyError, assert_container_scope
+from recoverops.safety import assert_container_scope
 from recoverops.state import record_event
 
 
@@ -76,11 +78,7 @@ def command_up(_: argparse.Namespace) -> int:
     paths = ProjectPaths.discover()
     paths.ensure_generated_directories()
     run([*compose_base(paths.root), "up", "-d", "--build"], cwd=paths.root)
-    for container in (
-        "recoverops-primary-db",
-        "recoverops-recovery-db",
-        "recoverops-primary-api",
-    ):
+    for container in ("recoverops-primary-db", "recoverops-recovery-db"):
         wait_for_container_health(container)
     return 0
 
@@ -102,6 +100,12 @@ def command_down(_: argparse.Namespace) -> int:
 def command_seed(_: argparse.Namespace) -> int:
     paths = ProjectPaths.discover()
     ansible_playbook(paths.root, "seed.yml")
+    return 0
+
+
+def command_ensure_source(_: argparse.Namespace) -> int:
+    result = ensure_recoverops_database("recoverops-primary-db", "primary-db")
+    print(json.dumps(result, indent=2, sort_keys=True))
     return 0
 
 
@@ -188,6 +192,41 @@ def command_restore(_: argparse.Namespace) -> int:
     return 0
 
 
+def command_build_report(_: argparse.Namespace) -> int:
+    paths = ProjectPaths.discover()
+    report = build_recovery_report(paths)
+    print(json.dumps(report, indent=2, sort_keys=True))
+    return 0 if report["outcome"] == "PASS" else 2
+
+
+def command_verify(_: argparse.Namespace) -> int:
+    paths = ProjectPaths.discover()
+    ansible_playbook(paths.root, "verify.yml")
+    return 0
+
+
+def command_report(_: argparse.Namespace) -> int:
+    paths = ProjectPaths.discover()
+    report = paths.reports / "recovery-report.md"
+    if not report.is_file():
+        raise RuntimeError("recovery report is missing; run verify first")
+    print(report.read_text(encoding="utf-8"))
+    return 0
+
+
+def command_rehearse(args: argparse.Namespace) -> int:
+    if not args.apply:
+        print("Refusing to run the destructive rehearsal without --apply.", file=sys.stderr)
+        return 2
+    command_up(args)
+    command_seed(args)
+    command_backup(args)
+    command_disaster(args)
+    command_restore(args)
+    command_verify(args)
+    return 0
+
+
 def command_test(_: argparse.Namespace) -> int:
     paths = ProjectPaths.discover()
     commands = [
@@ -221,6 +260,8 @@ def build_parser() -> argparse.ArgumentParser:
             "Restore the latest verified snapshot into the recovery database.",
             command_restore,
         ),
+        "verify": ("Compare recovered state and write recovery evidence.", command_verify),
+        "report": ("Print the latest Markdown recovery report.", command_report),
         "test": ("Run the local validation suite.", command_test),
     }
     for name, (help_text, handler) in handlers.items():
@@ -233,6 +274,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     disaster.add_argument("--apply", action="store_true")
     disaster.set_defaults(handler=command_disaster)
+
+    rehearse = subparsers.add_parser(
+        "rehearse",
+        help="Run the complete backup, disaster, restore, and verification workflow.",
+    )
+    rehearse.add_argument("--apply", action="store_true")
+    rehearse.set_defaults(handler=command_rehearse)
 
     fingerprint = subparsers.add_parser("fingerprint", help=argparse.SUPPRESS)
     fingerprint.add_argument("--target", choices=("primary", "recovery"), required=True)
@@ -252,6 +300,8 @@ def build_parser() -> argparse.ArgumentParser:
         ("restic-backup", command_restic_backup),
         ("restic-check", command_restic_check),
         ("restic-restore", command_restic_restore),
+        ("ensure-source", command_ensure_source),
+        ("build-report", command_build_report),
     ):
         internal = subparsers.add_parser(name, help=argparse.SUPPRESS)
         internal.set_defaults(handler=handler)
@@ -277,7 +327,7 @@ def main(argv: list[str] | None = None) -> int:
         detail = exc.stderr.strip() if exc.stderr else str(exc)
         print(f"error: {detail}", file=sys.stderr)
         return exc.returncode or 1
-    except (RuntimeError, SafetyError) as exc:
+    except (OSError, RuntimeError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 

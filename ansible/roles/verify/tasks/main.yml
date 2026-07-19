@@ -1,0 +1,22 @@
+---
+- name: Build and validate the recovery evidence report
+  ansible.builtin.command:
+    cmd: "{{ recoverops_root }}/.venv/bin/recoverctl build-report"
+  changed_when: true
+
+- name: Confirm the JSON recovery report exists
+  ansible.builtin.stat:
+    path: "{{ recoverops_root }}/artifacts/reports/recovery-report.json"
+  register: verify_json_report
+
+- name: Confirm the Markdown recovery report exists
+  ansible.builtin.stat:
+    path: "{{ recoverops_root }}/artifacts/reports/recovery-report.md"
+  register: verify_markdown_report
+
+- name: Require both recovery reports
+  ansible.builtin.assert:
+    that:
+      - verify_json_report.stat.exists
+      - verify_markdown_report.stat.exists
+    fail_msg: "Recovery evidence reports were not created."

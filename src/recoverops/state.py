@@ -13,6 +13,8 @@ def record_event(paths: ProjectPaths, name: str, status: str) -> dict[str, objec
     else:
         payload = {"format_version": 1, "events": {}}
     event = payload["events"].setdefault(name, {})
+    if status == "started":
+        event.clear()
     event["status"] = status
     event[f"{status}_at"] = utc_now()
     write_json(state_file, payload)

@@ -80,3 +80,24 @@ into the isolated recovery database.
 
 Next: turn the raw fingerprints and timestamps into explicit recovery evidence, add a
 repeatable rehearsal command, and prove modified dump rejection before `pg_restore`.
+
+## 2026-07-18 - Stage 5
+
+- Added source database recreation so the lab can repeat after intentional data loss.
+- Added the gated `rehearse --apply` command for the complete up, seed, backup,
+  disaster, restore, verify, and report lifecycle.
+- Added recovery comparison and evidence generation for schema hash, data hash, row
+  counts, PostgreSQL version, expected API states, RTO, restore duration, and backup age.
+- Added JSON evidence for automation and a human-readable Markdown report.
+- Verified a complete repeat rehearsal from a missing source database. The report passed
+  with a 32.154-second measured RTO and a 12.114-second restore duration on this WSL host.
+- Modified the restored dump after recovery, confirmed checksum rejection with exit code
+  2, and proved the recovery database fingerprints remained unchanged.
+- Re-restored the encrypted artifact and confirmed its manifest was valid after the
+  negative test.
+- Added contract coverage requiring repository preflight and manifest verification before
+  the recovery database is replaced.
+- Verified 28 tests, Ruff, Ansible syntax, and the Ansible production lint profile.
+
+Next: complete CI, the operator-focused README, contribution and security guidance, and
+release metadata before a clean acceptance run.

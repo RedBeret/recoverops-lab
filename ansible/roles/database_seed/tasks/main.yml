@@ -6,6 +6,12 @@
   changed_when: false
   failed_when: database_seed_container.stdout != "true"
 
+- name: Recreate the source database when a prior rehearsal removed it
+  ansible.builtin.command:
+    cmd: "{{ recoverops_root }}/.venv/bin/recoverctl ensure-source"
+  register: database_seed_create
+  changed_when: "'\"created\": true' in database_seed_create.stdout"
+
 - name: Apply the RecoverOps schema
   ansible.builtin.command:
     cmd: >-
@@ -22,3 +28,13 @@
       psql --set ON_ERROR_STOP=1 --username recoverops --dbname recoverops
       --file /lab/seed.sql
   changed_when: true
+
+- name: Wait for the source service to become healthy
+  ansible.builtin.uri:
+    url: http://127.0.0.1:18080/health
+    status_code: 200
+    return_content: true
+  register: database_seed_health
+  retries: 20
+  delay: 2
+  until: database_seed_health.status == 200
