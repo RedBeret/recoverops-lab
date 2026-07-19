@@ -51,6 +51,15 @@ def test_generated_secrets_are_ignored() -> None:
     assert "artifacts/restic-repo/*" in patterns
 
 
+def test_bootstrap_rebuilds_a_virtualenv_created_by_another_python() -> None:
+    bootstrap = (ROOT / "scripts/bootstrap.sh").read_text(encoding="utf-8")
+
+    assert "configured_executable" in bootstrap
+    assert "current_real" in bootstrap
+    assert "venv_args=(--clear)" in bootstrap
+    assert 'python3 -m venv "${venv_args[@]}" .venv' in bootstrap
+
+
 def test_restore_verifies_manifest_before_replacing_recovery_database() -> None:
     tasks = yaml.safe_load(
         (ROOT / "ansible/roles/restore/tasks/main.yml").read_text(encoding="utf-8")

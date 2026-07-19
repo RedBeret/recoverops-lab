@@ -21,7 +21,19 @@ if ! docker compose version >/dev/null 2>&1 && ! docker-compose --version >/dev/
   exit 1
 fi
 
-python3 -m venv .venv
+venv_args=()
+if [[ -f .venv/pyvenv.cfg ]]; then
+  configured_executable="$(sed -n 's/^executable = //p' .venv/pyvenv.cfg | head -n 1)"
+  configured_real="$(readlink -f -- "$configured_executable" 2>/dev/null || true)"
+  current_real="$(python3 -c 'import os, sys; print(os.path.realpath(sys.executable))')"
+
+  if [[ -z "$configured_real" || "$configured_real" != "$current_real" ]]; then
+    echo "Python interpreter changed; rebuilding the project virtual environment."
+    venv_args=(--clear)
+  fi
+fi
+
+python3 -m venv "${venv_args[@]}" .venv
 .venv/bin/python -m pip install --upgrade pip
 .venv/bin/python -m pip install -r requirements-dev.txt -e .
 

@@ -13,3 +13,8 @@ All notable changes are documented here.
 - Explicit destructive approval and Docker Compose scope validation.
 - JSON and Markdown recovery evidence with RTO and restore metrics.
 - Unit, contract, lint, and live-rehearsal GitHub Actions workflows.
+
+### Fixed
+
+- Bootstrap now rebuilds a stale virtual environment when the selected Python
+  interpreter changes.

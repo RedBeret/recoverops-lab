@@ -136,6 +136,9 @@ skeptical operator, then set the final version only if all acceptance criteria p
   them, removed the temporary clone, and confirmed KubeDrift was still the only running
   container.
 - Promoted the project to version 1.0.0 only after the clean acceptance criteria passed.
+- A final publishing check found a virtual environment whose Python symlink no longer
+  matched its creation metadata. Bootstrap now detects interpreter drift, rebuilds the
+  generated environment, and has a contract test protecting that behavior.
 
 Next: publish the repository and use focused pull requests for future capabilities such
 as object storage, physical backups, point-in-time recovery, and recovery trend reports.
