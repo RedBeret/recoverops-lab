@@ -11,6 +11,8 @@ def test_required_entrypoints_exist() -> None:
         "scripts/bootstrap.sh",
         "scripts/lab.sh",
         "src/recoverops/cli.py",
+        "ansible/playbooks/backup.yml",
+        "ansible/playbooks/seed.yml",
         "app/Dockerfile",
         "docs/PROJECT_PLAN.md",
     ):

@@ -37,3 +37,25 @@ test suite.
 
 Next: replace the placeholder database initialization with deterministic data,
 fingerprinting, PostgreSQL dump creation, restic encryption, and backup evidence.
+
+## 2026-07-18 - Stage 3
+
+- Added a deterministic PostgreSQL schema with four owners, six assets, and twelve
+  maintenance events.
+- Added canonical schema, row-count, and data fingerprints with atomic JSON writes.
+- Added Ansible seed and backup roles plus playbooks.
+- Added a custom-format `pg_dump`, SHA-256 manifest generation, and pre-encryption
+  verification.
+- Added containerized restic 0.19.0 repository initialization, tagged snapshots, and a
+  100 percent repository data read after every backup.
+- The first live restic backup exposed an unwritable default cache location for the
+  remapped WSL UID. The container now uses an ephemeral cache under `/tmp`, and command
+  failures surface the underlying stderr.
+- Verified deterministic fingerprints across two resets, healthy source API output,
+  two successful encrypted snapshots, complete restic integrity checks, and no known
+  source hostname appearing in repository bytes.
+- Verified 15 tests, Ruff, both Ansible syntax checks, and the Ansible production lint
+  profile.
+
+Next: add the explicit disaster approval gate and restore the latest verified snapshot
+into the isolated recovery database.

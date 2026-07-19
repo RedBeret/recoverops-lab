@@ -12,7 +12,9 @@ services:
       - "127.0.0.1:${PRIMARY_DB_PORT:-55432}:5432"
     volumes:
       - primary-data:/var/lib/postgresql/data
-      - ./lab/init.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+      - ./lab/schema.sql:/docker-entrypoint-initdb.d/10-schema.sql:ro
+      - ./lab/seed.sql:/docker-entrypoint-initdb.d/20-seed.sql:ro
+      - ./lab:/lab:ro
       - ./artifacts/backup:/backup
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-recoverops}"]

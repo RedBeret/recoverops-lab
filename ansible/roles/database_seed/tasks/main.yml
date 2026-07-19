@@ -1,0 +1,24 @@
+---
+- name: Confirm the primary database container is running
+  ansible.builtin.command:
+    cmd: docker inspect --format={{ '{{' }}.State.Running{{ '}}' }} recoverops-primary-db
+  register: database_seed_container
+  changed_when: false
+  failed_when: database_seed_container.stdout != "true"
+
+- name: Apply the RecoverOps schema
+  ansible.builtin.command:
+    cmd: >-
+      docker exec recoverops-primary-db
+      psql --set ON_ERROR_STOP=1 --username recoverops --dbname recoverops
+      --file /lab/schema.sql
+  register: database_seed_schema
+  changed_when: "'CREATE' in database_seed_schema.stdout"
+
+- name: Load the deterministic RecoverOps dataset
+  ansible.builtin.command:
+    cmd: >-
+      docker exec recoverops-primary-db
+      psql --set ON_ERROR_STOP=1 --username recoverops --dbname recoverops
+      --file /lab/seed.sql
+  changed_when: true

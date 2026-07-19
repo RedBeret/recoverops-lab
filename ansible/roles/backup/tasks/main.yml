@@ -1,0 +1,75 @@
+---
+- name: Inspect the generated environment file
+  ansible.builtin.stat:
+    path: "{{ recoverops_root }}/.env"
+  register: backup_environment
+
+- name: Inspect the generated restic password
+  ansible.builtin.stat:
+    path: "{{ recoverops_root }}/.secrets/restic-password"
+  register: backup_password
+
+- name: Require generated configuration
+  ansible.builtin.assert:
+    that:
+      - backup_environment.stat.exists
+      - backup_environment.stat.isreg
+      - backup_password.stat.exists
+      - backup_password.stat.isreg
+    fail_msg: "Missing generated configuration. Run ./scripts/bootstrap.sh."
+
+- name: Create the backup artifact chain
+  block:
+    - name: Capture the source database fingerprint
+      ansible.builtin.command:
+        cmd: >-
+          {{ recoverops_root }}/.venv/bin/recoverctl fingerprint
+          --target primary
+          --output artifacts/backup/source-fingerprint.json
+      changed_when: true
+
+    - name: Create a PostgreSQL custom-format dump
+      ansible.builtin.command:
+        cmd: >-
+          docker exec recoverops-primary-db
+          pg_dump --username recoverops --dbname recoverops
+          --format custom --no-owner --no-acl --file /backup/database.dump
+      changed_when: true
+
+    - name: Write the dump manifest
+      ansible.builtin.command:
+        cmd: "{{ recoverops_root }}/.venv/bin/recoverctl manifest"
+      changed_when: true
+
+    - name: Verify the dump manifest before encryption
+      ansible.builtin.command:
+        cmd: >-
+          {{ recoverops_root }}/.venv/bin/recoverctl verify-manifest
+          --directory artifacts/backup
+          --manifest artifacts/backup/manifest.json
+      changed_when: false
+
+    - name: Initialize the encrypted restic repository
+      ansible.builtin.command:
+        cmd: "{{ recoverops_root }}/.venv/bin/recoverctl restic-init"
+      register: backup_restic_init
+      changed_when: "'\"initialized\": true' in backup_restic_init.stdout"
+
+    - name: Store the backup artifacts in restic
+      ansible.builtin.command:
+        cmd: "{{ recoverops_root }}/.venv/bin/recoverctl restic-backup"
+      changed_when: true
+
+    - name: Read and verify all repository data
+      ansible.builtin.command:
+        cmd: "{{ recoverops_root }}/.venv/bin/recoverctl restic-check"
+      changed_when: false
+  rescue:
+    - name: Report backup failure
+      ansible.builtin.fail:
+        msg: "Backup workflow failed: {{ ansible_failed_result.msg | default('unknown error') }}"
+  always:
+    - name: Remove incomplete manifest output
+      ansible.builtin.file:
+        path: "{{ recoverops_root }}/artifacts/backup/manifest.json.tmp"
+        state: absent

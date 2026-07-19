@@ -1,0 +1,6 @@
+---
+- name: Create and verify the RecoverOps backup
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - role: backup

@@ -15,5 +15,5 @@ def test_parser_requires_a_command() -> None:
 def test_parser_accepts_foundation_commands() -> None:
     parser = build_parser()
 
-    for command in ("doctor", "up", "status", "down", "test"):
+    for command in ("doctor", "up", "status", "down", "seed", "backup", "test"):
         assert parser.parse_args([command]).command == command
