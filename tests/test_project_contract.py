@@ -13,6 +13,8 @@ def test_required_entrypoints_exist() -> None:
         "src/recoverops/cli.py",
         "ansible/playbooks/backup.yml",
         "ansible/playbooks/seed.yml",
+        "ansible/playbooks/disaster.yml",
+        "ansible/playbooks/restore.yml",
         "app/Dockerfile",
         "docs/PROJECT_PLAN.md",
     ):

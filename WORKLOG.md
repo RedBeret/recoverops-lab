@@ -59,3 +59,24 @@ fingerprinting, PostgreSQL dump creation, restic encryption, and backup evidence
 
 Next: add the explicit disaster approval gate and restore the latest verified snapshot
 into the isolated recovery database.
+
+## 2026-07-18 - Stage 4
+
+- Added exact Docker Compose project and service label validation before database
+  destruction or recovery changes.
+- Added a `disaster` command that exits with code 2 unless `--apply` is supplied.
+- Added Ansible disaster and restore roles with guarded blocks, failure recording, and
+  target validation.
+- Added restic restoration into a project-bound temporary directory and manifest
+  verification before the recovery database is touched.
+- Verified live that the missing approval leaves the source API healthy and unchanged.
+- Verified live database removal, primary API degradation, isolated restore, recovery
+  API health, and exact source-to-recovery schema, data, and row-count hashes.
+- The evidence read-back found that completion events overwrote their start times. State
+  events now preserve separate start, completion, and failure timestamps for RTO
+  calculation.
+- Verified 20 tests, Ruff, both new Ansible syntax checks, and the Ansible production
+  lint profile.
+
+Next: turn the raw fingerprints and timestamps into explicit recovery evidence, add a
+repeatable rehearsal command, and prove modified dump rejection before `pg_restore`.

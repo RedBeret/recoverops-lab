@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 from typing import Any
 
@@ -82,4 +83,15 @@ def check_repository(paths: ProjectPaths) -> dict[str, Any]:
     result = run_restic(paths, ["check", "--read-data-subset=100%"])
     payload = {"ok": True, "output": result.stdout.strip()}
     write_json(paths.backup / "restic-check.json", payload)
+    return payload
+
+
+def restore_latest(paths: ProjectPaths) -> dict[str, Any]:
+    destination = paths.require_artifact_path(paths.restore / "current")
+    if destination.exists():
+        shutil.rmtree(destination)
+    destination.mkdir(parents=True)
+    result = run_restic(paths, ["restore", "latest", "--target", "/restore/current"])
+    payload = {"ok": True, "output": result.stdout.strip()}
+    write_json(paths.restore / "restic-restore.json", payload)
     return payload

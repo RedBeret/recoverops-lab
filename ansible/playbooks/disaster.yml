@@ -1,0 +1,6 @@
+---
+- name: Inject a controlled RecoverOps database disaster
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - role: disaster

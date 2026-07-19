@@ -10,7 +10,12 @@ from collections.abc import Callable
 from recoverops import __version__
 from recoverops.config import ProjectPaths
 from recoverops.evidence import capture_fingerprint, create_manifest, verify_manifest, write_json
-from recoverops.restic import backup_artifacts, check_repository, initialize_repository
+from recoverops.restic import (
+    backup_artifacts,
+    check_repository,
+    initialize_repository,
+    restore_latest,
+)
 from recoverops.runner import (
     ansible_playbook,
     compose_base,
@@ -18,6 +23,8 @@ from recoverops.runner import (
     run,
     wait_for_container_health,
 )
+from recoverops.safety import SafetyError, assert_container_scope
+from recoverops.state import record_event
 
 
 def _check(label: str, command: list[str]) -> bool:
@@ -149,6 +156,38 @@ def command_backup(_: argparse.Namespace) -> int:
     return 0
 
 
+def command_assert_scope(args: argparse.Namespace) -> int:
+    print(json.dumps(assert_container_scope(args.container, args.service), indent=2))
+    return 0
+
+
+def command_state_event(args: argparse.Namespace) -> int:
+    paths = ProjectPaths.discover()
+    print(json.dumps(record_event(paths, args.name, args.status), indent=2, sort_keys=True))
+    return 0
+
+
+def command_restic_restore(_: argparse.Namespace) -> int:
+    paths = ProjectPaths.discover()
+    print(json.dumps(restore_latest(paths), indent=2, sort_keys=True))
+    return 0
+
+
+def command_disaster(args: argparse.Namespace) -> int:
+    if not args.apply:
+        print("Refusing to remove the primary database without --apply.", file=sys.stderr)
+        return 2
+    paths = ProjectPaths.discover()
+    ansible_playbook(paths.root, "disaster.yml")
+    return 0
+
+
+def command_restore(_: argparse.Namespace) -> int:
+    paths = ProjectPaths.discover()
+    ansible_playbook(paths.root, "restore.yml")
+    return 0
+
+
 def command_test(_: argparse.Namespace) -> int:
     paths = ProjectPaths.discover()
     commands = [
@@ -178,11 +217,22 @@ def build_parser() -> argparse.ArgumentParser:
         "down": ("Stop and remove lab containers while preserving volumes.", command_down),
         "seed": ("Reset the primary database to the deterministic sample dataset.", command_seed),
         "backup": ("Create, encrypt, and verify a source database backup.", command_backup),
+        "restore": (
+            "Restore the latest verified snapshot into the recovery database.",
+            command_restore,
+        ),
         "test": ("Run the local validation suite.", command_test),
     }
     for name, (help_text, handler) in handlers.items():
         command_parser = subparsers.add_parser(name, help=help_text)
         command_parser.set_defaults(handler=handler)
+
+    disaster = subparsers.add_parser(
+        "disaster",
+        help="Remove the source database after explicit approval.",
+    )
+    disaster.add_argument("--apply", action="store_true")
+    disaster.set_defaults(handler=command_disaster)
 
     fingerprint = subparsers.add_parser("fingerprint", help=argparse.SUPPRESS)
     fingerprint.add_argument("--target", choices=("primary", "recovery"), required=True)
@@ -201,9 +251,20 @@ def build_parser() -> argparse.ArgumentParser:
         ("restic-init", command_restic_init),
         ("restic-backup", command_restic_backup),
         ("restic-check", command_restic_check),
+        ("restic-restore", command_restic_restore),
     ):
         internal = subparsers.add_parser(name, help=argparse.SUPPRESS)
         internal.set_defaults(handler=handler)
+
+    scope = subparsers.add_parser("assert-scope", help=argparse.SUPPRESS)
+    scope.add_argument("--container", required=True)
+    scope.add_argument("--service", required=True)
+    scope.set_defaults(handler=command_assert_scope)
+
+    state_event = subparsers.add_parser("state-event", help=argparse.SUPPRESS)
+    state_event.add_argument("--name", required=True)
+    state_event.add_argument("--status", choices=("started", "completed", "failed"), required=True)
+    state_event.set_defaults(handler=command_state_event)
     return parser
 
 
@@ -216,7 +277,7 @@ def main(argv: list[str] | None = None) -> int:
         detail = exc.stderr.strip() if exc.stderr else str(exc)
         print(f"error: {detail}", file=sys.stderr)
         return exc.returncode or 1
-    except RuntimeError as exc:
+    except (RuntimeError, SafetyError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 

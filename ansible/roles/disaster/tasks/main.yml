@@ -1,0 +1,71 @@
+---
+- name: Inject the controlled database loss
+  block:
+    - name: Confirm the backup chain is valid before disaster injection
+      ansible.builtin.command:
+        cmd: >-
+          {{ recoverops_root }}/.venv/bin/recoverctl verify-manifest
+          --directory artifacts/backup
+          --manifest artifacts/backup/manifest.json
+      changed_when: false
+
+    - name: Confirm the destructive target is the RecoverOps primary database
+      ansible.builtin.command:
+        cmd: >-
+          {{ recoverops_root }}/.venv/bin/recoverctl assert-scope
+          --container recoverops-primary-db
+          --service primary-db
+      changed_when: false
+
+    - name: Record disaster injection start
+      ansible.builtin.command:
+        cmd: >-
+          {{ recoverops_root }}/.venv/bin/recoverctl state-event
+          --name disaster --status started
+      changed_when: true
+
+    - name: Remove the primary RecoverOps database
+      ansible.builtin.command:
+        cmd: >-
+          docker exec recoverops-primary-db
+          psql --set ON_ERROR_STOP=1 --username recoverops --dbname postgres
+          --command DROP\ DATABASE\ recoverops\ WITH\ \(FORCE\)\;
+      changed_when: true
+
+    - name: Confirm the primary database is absent
+      ansible.builtin.command:
+        cmd: >-
+          docker exec recoverops-primary-db
+          psql --username recoverops --dbname postgres --tuples-only --no-align
+          --command SELECT\ 1\ FROM\ pg_database\ WHERE\ datname=\'recoverops\'\;
+      register: disaster_database_check
+      changed_when: false
+      failed_when: disaster_database_check.stdout | trim != ""
+
+    - name: Confirm the primary service reports degradation
+      ansible.builtin.uri:
+        url: http://127.0.0.1:18080/health
+        status_code: 503
+        return_content: true
+      register: disaster_primary_health
+      retries: 15
+      delay: 2
+      until: disaster_primary_health.status == 503
+
+    - name: Record successful disaster injection
+      ansible.builtin.command:
+        cmd: >-
+          {{ recoverops_root }}/.venv/bin/recoverctl state-event
+          --name disaster --status completed
+      changed_when: true
+  rescue:
+    - name: Record failed disaster injection
+      ansible.builtin.command:
+        cmd: >-
+          {{ recoverops_root }}/.venv/bin/recoverctl state-event
+          --name disaster --status failed
+      changed_when: true
+
+    - name: Report disaster injection failure
+      ansible.builtin.fail:
+        msg: "Disaster injection failed: {{ ansible_failed_result.msg | default('unknown error') }}"

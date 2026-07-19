@@ -15,5 +15,21 @@ def test_parser_requires_a_command() -> None:
 def test_parser_accepts_foundation_commands() -> None:
     parser = build_parser()
 
-    for command in ("doctor", "up", "status", "down", "seed", "backup", "test"):
+    for command in (
+        "doctor",
+        "up",
+        "status",
+        "down",
+        "seed",
+        "backup",
+        "restore",
+        "test",
+    ):
         assert parser.parse_args([command]).command == command
+
+
+def test_disaster_requires_explicit_apply(capsys) -> None:
+    from recoverops.cli import main
+
+    assert main(["disaster"]) == 2
+    assert "without --apply" in capsys.readouterr().err

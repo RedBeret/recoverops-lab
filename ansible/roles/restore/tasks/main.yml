@@ -1,0 +1,97 @@
+---
+- name: Inspect the encrypted repository configuration
+  ansible.builtin.stat:
+    path: "{{ recoverops_root }}/artifacts/restic-repo/config"
+  register: restore_repository
+
+- name: Require an initialized backup repository
+  ansible.builtin.assert:
+    that:
+      - restore_repository.stat.exists
+      - restore_repository.stat.isreg
+    fail_msg: "No restic repository exists. Run ./scripts/lab.sh backup first."
+
+- name: Restore the latest verified snapshot
+  block:
+    - name: Confirm the restore target is the RecoverOps recovery database
+      ansible.builtin.command:
+        cmd: >-
+          {{ recoverops_root }}/.venv/bin/recoverctl assert-scope
+          --container recoverops-recovery-db
+          --service recovery-db
+      changed_when: false
+
+    - name: Record restore start
+      ansible.builtin.command:
+        cmd: >-
+          {{ recoverops_root }}/.venv/bin/recoverctl state-event
+          --name restore --status started
+      changed_when: true
+
+    - name: Restore the latest encrypted snapshot to temporary storage
+      ansible.builtin.command:
+        cmd: "{{ recoverops_root }}/.venv/bin/recoverctl restic-restore"
+      changed_when: true
+
+    - name: Verify restored artifact checksums before database changes
+      ansible.builtin.command:
+        cmd: >-
+          {{ recoverops_root }}/.venv/bin/recoverctl verify-manifest
+          --directory artifacts/restore/current/backup
+          --manifest artifacts/restore/current/backup/manifest.json
+      changed_when: false
+
+    - name: Remove any previous isolated recovery database
+      ansible.builtin.command:
+        cmd: >-
+          docker exec recoverops-recovery-db
+          dropdb --if-exists --force --username recoverops recoverops
+      changed_when: true
+
+    - name: Create the isolated recovery database
+      ansible.builtin.command:
+        cmd: >-
+          docker exec recoverops-recovery-db
+          createdb --username recoverops --owner recoverops recoverops
+      changed_when: true
+
+    - name: Restore the PostgreSQL dump into isolation
+      ansible.builtin.command:
+        cmd: >-
+          docker exec recoverops-recovery-db
+          pg_restore --exit-on-error --username recoverops --dbname recoverops
+          --no-owner --no-acl /restore/current/backup/database.dump
+      changed_when: true
+
+    - name: Wait for the recovered service to become healthy
+      ansible.builtin.uri:
+        url: http://127.0.0.1:18081/health
+        status_code: 200
+        return_content: true
+      register: restore_recovery_health
+      retries: 20
+      delay: 2
+      until: restore_recovery_health.status == 200
+
+    - name: Record successful restore
+      ansible.builtin.command:
+        cmd: >-
+          {{ recoverops_root }}/.venv/bin/recoverctl state-event
+          --name restore --status completed
+      changed_when: true
+  rescue:
+    - name: Record failed restore
+      ansible.builtin.command:
+        cmd: >-
+          {{ recoverops_root }}/.venv/bin/recoverctl state-event
+          --name restore --status failed
+      changed_when: true
+
+    - name: Report restore failure
+      ansible.builtin.fail:
+        msg: "Restore failed: {{ ansible_failed_result.msg | default('unknown error') }}"
+  always:
+    - name: Remove incomplete restore metadata
+      ansible.builtin.file:
+        path: "{{ recoverops_root }}/artifacts/restore/restic-restore.json.tmp"
+        state: absent
