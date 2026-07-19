@@ -119,3 +119,23 @@ release metadata before a clean acceptance run.
 
 Next: run the release candidate from a clean generated state, review the repository as a
 skeptical operator, then set the final version only if all acceptance criteria pass.
+
+## 2026-07-18 - Stage 7
+
+- Removed the generated RecoverOps containers and volumes, then cloned the committed
+  release candidate into a clean temporary WSL directory.
+- Verified bootstrap, diagnostics, 29 tests, Ruff formatting and linting, five Ansible
+  syntax checks, and the Ansible production lint profile from the clean clone.
+- Confirmed the rehearsal refuses to run without `--apply` and exits with code 2 before
+  making changes.
+- Ran the complete approved rehearsal and received a passing evidence report with a
+  21.781-second RTO, 10.41-second restore duration, and 47.479-second backup age.
+- Confirmed the source API returned 503 after the controlled failure, the recovery API
+  returned 200, and schema, data, row counts, and PostgreSQL version matched exactly.
+- Verified the disposable volumes carried the `recoverops` project label before removing
+  them, removed the temporary clone, and confirmed KubeDrift was still the only running
+  container.
+- Promoted the project to version 1.0.0 only after the clean acceptance criteria passed.
+
+Next: publish the repository and use focused pull requests for future capabilities such
+as object storage, physical backups, point-in-time recovery, and recovery trend reports.

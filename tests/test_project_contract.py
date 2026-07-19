@@ -1,9 +1,21 @@
 import re
+import tomllib
 from pathlib import Path
 
 import yaml
+from recoverops_api.main import app
+
+from recoverops import __version__
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_release_versions_match() -> None:
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+
+    assert project["project"]["version"] == "1.0.0"
+    assert __version__ == project["project"]["version"]
+    assert app.version == __version__
 
 
 def test_required_entrypoints_exist() -> None:
